@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 	"net/http"
+	"strings"
 )
 
 type Transport interface {
@@ -10,7 +11,7 @@ type Transport interface {
 		endpoint Endpoint,
 		decode func(ctx context.Context, r *http.Request) (interface{}, error),
 		encode func(ctx context.Context, w http.ResponseWriter, resp interface{}) error,
-		encodeError func(ctx context.Context, err error, w http.ResponseWriter) error,
+		encodeError func(ctx context.Context, err error, w http.ResponseWriter),
 	)
 }
 type Endpoint func(ctx context.Context, request interface{}) (response interface{}, err error)
@@ -32,7 +33,7 @@ func (t *transport) Server(
 	endpoint Endpoint,
 	decode func(ctx context.Context, r *http.Request) (interface{}, error),
 	encode func(ctx context.Context, w http.ResponseWriter, resp interface{}) error,
-	encodeError func(ctx context.Context, err error, w http.ResponseWriter) error,
+	encodeError func(ctx context.Context, err error, w http.ResponseWriter),
 ) {
 	data, err2 := decode(t.ctx, t.r)
 	if err2 != nil {
@@ -48,4 +49,15 @@ func (t *transport) Server(
 		encodeError(t.ctx, err, t.w)
 		return
 	}
+}
+
+func Clean(url string) ([]string, int) {
+	if url[0] != '/' {
+		url = "/" + url
+	}
+	if url[len(url)-1] != '/' {
+		url = url + "/"
+	}
+	parts := strings.Split(url, "/")
+	return parts, len(parts)
 }

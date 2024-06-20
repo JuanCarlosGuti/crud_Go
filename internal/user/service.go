@@ -45,7 +45,6 @@ func (s service) GetAll(ctx context.Context) ([]domain.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.log.Println("service GetAll returned users: ", users)
 	return users, nil
 }
 func (s *service) Update(ctx context.Context, user *domain.User) (*domain.User, error) {
