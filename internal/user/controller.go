@@ -5,23 +5,31 @@ import (
 	"errors"
 	"github.com/JuanCarlosGuti/Go_users.git/internal/domain"
 	"github.com/JuanCarlosGuti/Go_users.git/internal/request"
+	"log"
 )
 
 type (
 	Controller func(ctx context.Context, r interface{}) (interface{}, error)
 
 	Endpoints struct {
-		Create Controller
-		GetAll Controller
-		Update Controller
+		Create  Controller
+		GetAll  Controller
+		Get     Controller
+		Update  Controller
+		UpdateP Controller
+	}
+	GetReq struct {
+		ID uint64
 	}
 )
 
 func MakeEndpoints(ctx context.Context, s Service) Endpoints {
 	return Endpoints{
-		Create: makeCreateEndpoint(s),
-		GetAll: makeGetAllEnpoint(s),
-		Update: makeUpdateEndpoints(s),
+		Create:  makeCreateEndpoint(s),
+		GetAll:  makeGetAllEnpoint(s),
+		Get:     makeGetEnpoint(s),
+		Update:  makeUpdateEndpoints(s),
+		UpdateP: makeUpdateEndpoints2(s),
 	}
 }
 
@@ -32,6 +40,19 @@ func makeGetAllEnpoint(s Service) Controller {
 			return nil, errors.New("Error getting all users")
 		}
 		return users, nil
+
+	}
+
+}
+func makeGetEnpoint(s Service) Controller {
+	return func(ctx context.Context, r interface{}) (interface{}, error) {
+		req := r.(GetReq)
+
+		user, err := s.Get(ctx, req.ID)
+		if err != nil {
+			return nil, errors.New("Error getting all users")
+		}
+		return user, nil
 
 	}
 
@@ -74,4 +95,16 @@ func makeUpdateEndpoints(s Service) Controller {
 		return updatedUser, nil
 	}
 
+}
+func makeUpdateEndpoints2(s Service) Controller {
+	return func(ctx context.Context, r interface{}) (interface{}, error) {
+		req := r.(request.UpdateRequest)
+		log.Println("id controller", req.ID)
+		if err := s.Update2(ctx, req.ID, req.FirstName, req.LastName, req.Email); err != nil {
+
+			return nil, err
+		}
+		return nil, nil
+
+	}
 }

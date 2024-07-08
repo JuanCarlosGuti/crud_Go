@@ -12,3 +12,10 @@ type CreatePreviewRequest struct {
 	LastName  string `json:"lastname"`
 	Email     string `json:"email"`
 }
+
+type UpdateRequest struct {
+	ID        uint64
+	FirstName *string `json:"firstname"`
+	LastName  *string `json:"lastname"`
+	Email     *string `json:"email"`
+}

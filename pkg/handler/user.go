@@ -9,6 +9,7 @@ import (
 	"github.com/JuanCarlosGuti/Go_users.git/pkg/transport"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 func NewUserHttpServer(ctx context.Context, router *http.ServeMux, endpoints user.Endpoints) {
@@ -31,52 +32,75 @@ func UserServer(ctx context.Context, endpoints user.Endpoints) func(w http.Respo
 			params["userId"] = path[2]
 
 		}
-		ctx = context.WithValue(ctx, "params", params)
-		log.Println("valid path size: ", path)
-		tran := transport.New(w, r, ctx)
+
+		tran := transport.New(w, r, context.WithValue(ctx, "params", params))
+		var end user.Controller
+		var deco func(ctx context.Context, r *http.Request) (interface{}, error)
 
 		switch r.Method {
 		case http.MethodGet:
 			switch pathsize {
 			case 3:
-				tran.Server(
-					transport.Endpoint(endpoints.GetAll),
-					decodeGetAlluser,
-					encodeResponse,
-					encodeError)
+
+				end = endpoints.GetAll
+				deco = decodeGetAlluser
+
 			case 4:
-				tran.Server(
-					nil,
-					decodeGetUser,
-					encodeResponse,
-					encodeError)
+				end = endpoints.Get
+				deco = decodeGetUser
+
 			}
 		case http.MethodPost:
-			if pathsize == 3 {
-				tran.Server(
-					transport.Endpoint(endpoints.Create),
-					decodeCreateuser,
-					encodeResponse,
-					encodeError)
+			switch pathsize {
+			case 3:
+				end = endpoints.Create
+				deco = decodeCreateuser
+
 			}
 		case http.MethodPut:
 			if pathsize == 3 {
-				tran.Server(
-					transport.Endpoint(endpoints.Update),
-					decodeUpdateuser,
-					encodeResponse,
-					encodeError)
+				end = endpoints.Update
+				deco = decodeUpdateuser
+
 			}
-		default:
+		case http.MethodPatch:
+			switch pathsize {
+			case 4:
+				end = endpoints.UpdateP
+				deco = decodeUpdateUser2
+			}
+
+		}
+		if end != nil && deco != nil {
+			tran.Server(
+				transport.Endpoint(end),
+				deco,
+				encodeResponse,
+				encodeError)
+		} else {
 			InvalidMethod(w)
 		}
+
 	}
 }
 func encodeError(_ context.Context, err error, w http.ResponseWriter) {
 	status := http.StatusInternalServerError
 	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	fmt.Fprintf(w, `{"status": %d, "message": "%s"}`, w, err.Error())
+	fmt.Fprintf(w, `{"status": %d, "message": "%s"}`, status, err.Error())
+
+}
+
+func decodeGetUser(ctx context.Context, r *http.Request) (interface{}, error) {
+	params := ctx.Value("params").(map[string]string)
+	id, err := strconv.ParseUint(params["userId"], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return user.GetReq{
+		ID: id,
+	}, nil
 
 }
 
@@ -93,12 +117,22 @@ func decodeCreateuser(ctx context.Context, r *http.Request) (interface{}, error)
 	return req, nil
 
 }
-func decodeGetUser(ctx context.Context, r *http.Request) (interface{}, error) {
-	//	params := ctx.Value("params").(map[string]string)
-	//fmt.Println(params)
-	//fmt.Println(params["userId"])
-	return nil, fmt.Errorf("error get User")
+func decodeUpdateUser2(ctx context.Context, r *http.Request) (interface{}, error) {
+	var req request.UpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return nil, fmt.Errorf("invalid request body: '%v'", err.Error())
+	}
+	
+	params := ctx.Value("params").(map[string]string)
+	id, err := strconv.ParseUint(params["userId"], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("id del params: ", id)
+	req.ID = id
+	return req, nil
 }
+
 func decodeUpdateuser(ctx context.Context, r *http.Request) (interface{}, error) {
 	var req request.CreatePreviewRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -122,14 +156,7 @@ func encodeResponse(ctx context.Context, w http.ResponseWriter, response interfa
 }
 
 func InvalidMethod(w http.ResponseWriter) {
-	MsgResponse(w, http.StatusNotFound, "Method does not exist")
-}
-
-func MsgResponse(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
+	status := http.StatusNotFound
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  status,
-		"message": message,
-	})
+	fmt.Fprintf(w, `{"status": %d, "message": "methos doesn't exist"}`, status)
 }
