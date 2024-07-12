@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/JuanCarlosGuti/Go_users.git/internal/request"
 	"github.com/JuanCarlosGuti/Go_users.git/internal/user"
@@ -10,6 +11,7 @@ import (
 	response2 "github.com/JuanCarlosGuti/Response_GO/response"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 )
 
@@ -33,7 +35,7 @@ func UserServer(ctx context.Context, endpoints user.Endpoints) func(w http.Respo
 			params["userId"] = path[2]
 
 		}
-
+		params["token"] = r.Header.Get("Authorization")
 		tran := transport.New(w, r, context.WithValue(ctx, "params", params))
 		var end user.Controller
 		var deco func(ctx context.Context, r *http.Request) (interface{}, error)
@@ -97,7 +99,7 @@ func decodeGetUser(ctx context.Context, r *http.Request) (interface{}, error) {
 	params := ctx.Value("params").(map[string]string)
 	id, err := strconv.ParseUint(params["userId"], 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, response2.BadRequest("Invalid user id: " + err.Error())
 	}
 
 	return user.GetReq{
@@ -112,20 +114,34 @@ func decodeGetAlluser(ctx context.Context, r *http.Request) (interface{}, error)
 }
 
 func decodeCreateuser(ctx context.Context, r *http.Request) (interface{}, error) {
+	params := ctx.Value("params").(map[string]string)
+	if err := tokenVerify(params["token"]); err != nil {
+		return nil, response2.UnAuthorized(err.Error())
+	}
 	var req request.CreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return nil, fmt.Errorf("invalid request body: '%v'", err.Error())
+		return nil, response2.BadRequest("invalid request body: " + err.Error())
 	}
 	return req, nil
 
 }
+func tokenVerify(token string) error {
+	if os.Getenv("TOKEN") != token {
+		return errors.New("invalid token")
+	}
+	return nil
+
+}
 func decodeUpdateUser2(ctx context.Context, r *http.Request) (interface{}, error) {
+	params := ctx.Value("params").(map[string]string)
+	if err := tokenVerify(params["token"]); err != nil {
+		return nil, response2.UnAuthorized(err.Error())
+	}
 	var req request.UpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return nil, fmt.Errorf("invalid request body: '%v'", err.Error())
+		return nil, response2.BadRequest("invalid request body: " + err.Error())
 	}
 
-	params := ctx.Value("params").(map[string]string)
 	id, err := strconv.ParseUint(params["userId"], 10, 64)
 	if err != nil {
 		return nil, err
@@ -138,7 +154,7 @@ func decodeUpdateUser2(ctx context.Context, r *http.Request) (interface{}, error
 func decodeUpdateuser(ctx context.Context, r *http.Request) (interface{}, error) {
 	var req request.CreatePreviewRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return nil, fmt.Errorf("invalid request body: '%v'", err.Error())
+		return nil, response2.BadRequest("invalid request body: " + err.Error())
 	}
 	return req, nil
 
