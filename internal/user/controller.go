@@ -102,7 +102,7 @@ func makeUpdateEndpoints(s Service) Controller {
 		if err != nil {
 			return nil, err
 		}
-		return updatedUser, nil
+		return response.Ok("success", updatedUser), nil
 	}
 
 }
