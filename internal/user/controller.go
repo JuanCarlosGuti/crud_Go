@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/JuanCarlosGuti/Go_users.git/internal/domain"
 	"github.com/JuanCarlosGuti/Go_users.git/internal/request"
+	"github.com/JuanCarlosGuti/Response_GO/response"
 	"log"
 )
 
@@ -37,9 +38,9 @@ func makeGetAllEnpoint(s Service) Controller {
 	return func(ctx context.Context, r interface{}) (interface{}, error) {
 		users, err := s.GetAll(ctx)
 		if err != nil {
-			return nil, errors.New("Error getting all users")
+			return nil, response.InternalServerError("Error getting all users")
 		}
-		return users, nil
+		return response.Ok("successs", users), nil
 
 	}
 
@@ -50,9 +51,12 @@ func makeGetEnpoint(s Service) Controller {
 
 		user, err := s.Get(ctx, req.ID)
 		if err != nil {
-			return nil, errors.New("Error getting all users")
+			if errors.As(err, &ErrorNotFound{}) {
+				return nil, response.NotFound(err.Error())
+			}
+			return nil, ErrorNotFound{req.ID}
 		}
-		return user, nil
+		return response.Ok("successs", user), nil
 
 	}
 
@@ -62,23 +66,29 @@ func makeCreateEndpoint(s Service) Controller {
 	return func(ctx context.Context, r interface{}) (interface{}, error) {
 		req := r.(request.CreateRequest)
 
-		if req.FirstName == "" || req.LastName == "" || req.Email == "" {
-			//	MsgResponse(w, http.StatusBadRequest, "All fields must be filled")
-			return nil, errors.New("first name, last name, email required")
+		if req.FirstName == "" {
+
+			return nil, response.BadRequest(ErrFirstNameRequired.Error())
+		}
+		if req.LastName == "" {
+			return nil, response.BadRequest(ErrLastNameRequired.Error())
 		}
 		user, err := s.Create(ctx, req.FirstName, req.LastName, req.Email)
 		if err != nil {
-			return nil, err
+			return nil, response.InternalServerError(err.Error())
 		}
-		return user, nil
+		return response.Crreated("success", user), nil
 	}
 }
 
 func makeUpdateEndpoints(s Service) Controller {
 	return func(ctx context.Context, r interface{}) (interface{}, error) {
 		req := r.(request.CreatePreviewRequest)
-		if req.FirstName == "" || req.LastName == "" || req.Email == "" {
-			return nil, errors.New("first name, last name, email required")
+		if req.FirstName == "" {
+			return nil, response.BadRequest(ErrFirstNameRequired.Error())
+		}
+		if req.LastName == "" {
+			return nil, response.BadRequest(ErrLastNameRequired.Error())
 		}
 
 		user := &domain.User{
@@ -99,12 +109,20 @@ func makeUpdateEndpoints(s Service) Controller {
 func makeUpdateEndpoints2(s Service) Controller {
 	return func(ctx context.Context, r interface{}) (interface{}, error) {
 		req := r.(request.UpdateRequest)
+		if req.FirstName != nil && *req.FirstName == "" {
+			return nil, response.BadRequest(ErrFirstNameRequired.Error())
+		}
+		if req.LastName != nil && *req.LastName == "" {
+			return nil, response.BadRequest(ErrLastNameRequired.Error())
+		}
 		log.Println("id controller", req.ID)
 		if err := s.Update2(ctx, req.ID, req.FirstName, req.LastName, req.Email); err != nil {
-
-			return nil, err
+			if errors.As(err, &ErrorNotFound{}) {
+				return nil, response.NotFound(err.Error())
+			}
+			return nil, response.InternalServerError(err.Error())
 		}
-		return nil, nil
+		return response.Ok("success", nil), nil
 
 	}
 }

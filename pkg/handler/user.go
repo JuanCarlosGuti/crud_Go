@@ -7,6 +7,7 @@ import (
 	"github.com/JuanCarlosGuti/Go_users.git/internal/request"
 	"github.com/JuanCarlosGuti/Go_users.git/internal/user"
 	"github.com/JuanCarlosGuti/Go_users.git/pkg/transport"
+	response2 "github.com/JuanCarlosGuti/Response_GO/response"
 	"log"
 	"net/http"
 	"strconv"
@@ -84,10 +85,11 @@ func UserServer(ctx context.Context, endpoints user.Endpoints) func(w http.Respo
 	}
 }
 func encodeError(_ context.Context, err error, w http.ResponseWriter) {
-	status := http.StatusInternalServerError
-	w.WriteHeader(status)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	fmt.Fprintf(w, `{"status": %d, "message": "%s"}`, status, err.Error())
+	resp := err.(response2.Response)
+
+	w.WriteHeader(resp.StatusCode())
+	json.NewEncoder(w).Encode(resp)
 
 }
 
@@ -122,7 +124,7 @@ func decodeUpdateUser2(ctx context.Context, r *http.Request) (interface{}, error
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return nil, fmt.Errorf("invalid request body: '%v'", err.Error())
 	}
-	
+
 	params := ctx.Value("params").(map[string]string)
 	id, err := strconv.ParseUint(params["userId"], 10, 64)
 	if err != nil {
@@ -143,15 +145,11 @@ func decodeUpdateuser(ctx context.Context, r *http.Request) (interface{}, error)
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
-	data, err := json.Marshal(response)
-	if err != nil {
-		return err
-	}
-
+	r := response.(response2.Response)
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
-	return nil
+	w.WriteHeader(r.StatusCode())
+
+	return json.NewEncoder(w).Encode(r)
 
 }
 

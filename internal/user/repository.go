@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"fmt"
 	"github.com/JuanCarlosGuti/Go_users.git/internal/domain"
 	"log"
 	"slices"
@@ -50,8 +49,8 @@ func (r *repository) Get(ctx context.Context, id uint64) (*domain.User, error) {
 	index := slices.IndexFunc(r.db.Users, func(v domain.User) bool {
 		return v.ID == id
 	})
-	if index == -1 {
-		return nil, fmt.Errorf("user not found")
+	if index < 0 {
+		return nil, ErrorNotFound{id}
 	}
 	return &r.db.Users[index], nil
 
@@ -69,7 +68,7 @@ func (r *repository) Update(ctx context.Context, user *domain.User) error {
 		}
 	}
 	if !found {
-		err := fmt.Errorf("no user found with ID %d", user.ID)
+		err := ErrorNotFound{user.ID}
 		r.log.Println(err)
 		return err
 	}
